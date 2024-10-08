@@ -8,8 +8,15 @@ pub const WindowInitError = error{
     GlfwWindowCreationFailed,
 };
 
+pub const WindowUpdateResult = enum {
+    ok,
+    skip,
+    close,
+};
+
 pub const Window = struct {
     glfw_window: *c.GLFWwindow,
+    size: Vec2(u32),
 
     pub fn init(size: Vec2(u32), name: [*:0]const u8) WindowInitError!Window {
         if (c.glfwInit() != c.GLFW_TRUE) {
@@ -30,12 +37,17 @@ pub const Window = struct {
             null,
         ) orelse return error.GlfwWindowCreationFailed;
 
-        return Window{ .glfw_window = @constCast(window) };
+        return Window{ .glfw_window = @constCast(window), .size = size };
     }
 
     pub fn deinit(self: Window) void {
         c.glfwTerminate();
         c.glfwDestroyWindow(self.glfw_window);
+    }
+
+    pub fn pollEvents(self: Window) void {
+        _ = self;
+        c.glfwPollEvents();
     }
 
     pub fn shouldClose(self: Window) bool {

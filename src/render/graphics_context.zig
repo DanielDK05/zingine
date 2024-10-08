@@ -1,6 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const c = @import("c.zig");
+const c = @import("../c.zig");
 
 const Allocator = std.mem.Allocator;
 
@@ -57,8 +57,6 @@ pub const GraphicsContext = struct {
 
     allocator: Allocator,
 
-    swapchain: Swapchain,
-
     vkb: BaseDispatch,
 
     instance: Instance,
@@ -66,10 +64,6 @@ pub const GraphicsContext = struct {
     physical_device: vk.PhysicalDevice,
     properties: vk.PhysicalDeviceProperties,
     memory_properties: vk.PhysicalDeviceMemoryProperties,
-
-    pipeline_layout: vk.PipelineLayout,
-    pipeline: vk.Pipeline,
-    render_pass: vk.RenderPass,
 
     device: Device,
     graphics_queue: Queue,
@@ -121,16 +115,6 @@ pub const GraphicsContext = struct {
 
         const memory_properties = instance.getPhysicalDeviceMemoryProperties(physical_device_candidate.physical_device);
 
-        const layout = try device.createPipelineLayout(&.{
-            .flags = .{},
-            .set_layout_count = 0,
-            .p_set_layouts = undefined,
-            .push_constant_range_count = 0,
-            .p_push_constant_ranges = undefined,
-        }, null);
-
-        const render_pass = try createRenderPass();
-
         return GraphicsContext{
             .allocator = allocator,
             .vkb = baseDispatch,
@@ -141,9 +125,7 @@ pub const GraphicsContext = struct {
             .memory_properties = memory_properties,
             .graphics_queue = graphics_queue,
             .present_queue = present_queue,
-            .pipeline_layout = undefined,
-            .pipeline = undefined,
-            .render_pass = undefined,
+            .device = device,
         };
     }
 
@@ -151,10 +133,6 @@ pub const GraphicsContext = struct {
         self.device.destroyDevice(null);
         self.instance.destroySurfaceKHR(self.surface, null);
         self.instance.destroyInstance(null);
-
-        self.device.destroyPipelineLayout(self.pipeline_layout, null);
-        self.device.destroyRenderPass(self.render_pass, null);
-        self.device.destroyPipeline(self.pipeline, null);
 
         // Don't forget to free the tables to prevent a memory leak.
         self.allocator.destroy(self.device.wrapper);
