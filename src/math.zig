@@ -18,6 +18,27 @@ pub fn Vec2(comptime T: type) type {
         pub fn eq(self: Self, rhs: Self) bool {
             return self.x == rhs.x and self.y == rhs.y;
         }
+
+        pub fn simd(self: Self) @Vector(2, T) {
+            return .{ self.x, self.y };
+        }
+
+        pub fn fromArr(arr: [2]T) Self {
+            return Self{ .x = arr[0], .y = arr[1] };
+        }
+
+        pub fn normalize(self: Self) Self {
+            const len = self.length();
+            return Self{ .x = self.x / len, .y = self.y / len };
+        }
+
+        pub fn length(self: Self) T {
+            return @sqrt(self.x * self.x + self.y * self.y);
+        }
+
+        pub fn scale(self: Self, scale_: T) Self {
+            return Self{ .x = self.x * scale_, .y = self.y * scale_ };
+        }
     };
 
     return Vector2;

@@ -134,7 +134,6 @@ pub const GraphicsContext = struct {
         self.instance.destroySurfaceKHR(self.surface, null);
         self.instance.destroyInstance(null);
 
-        // Don't forget to free the tables to prevent a memory leak.
         self.allocator.destroy(self.device.wrapper);
         self.allocator.destroy(self.instance.wrapper);
     }

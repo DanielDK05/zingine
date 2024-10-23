@@ -4,13 +4,14 @@ const vk = @import("vulkan");
 const GraphicsContext = @import("graphics_context.zig").GraphicsContext;
 const Allocator = std.mem.Allocator;
 
+const assert = std.debug.assert;
+
 pub const Swapchain = struct {
     pub const PresentState = enum {
         Optimal,
         Suboptimal,
     };
 
-    gc: *const GraphicsContext,
     allocator: Allocator,
 
     surface_format: vk.SurfaceFormatKHR,
@@ -81,7 +82,6 @@ pub const Swapchain = struct {
         std.mem.swap(vk.Semaphore, &swap_images[result.image_index].image_acquired, &next_image_acquired);
 
         return Swapchain{
-            .gc = gc,
             .allocator = allocator,
             .surface_format = surface_format,
             .present_mode = present_mode,
@@ -93,20 +93,19 @@ pub const Swapchain = struct {
         };
     }
 
-    pub fn deinit(self: Swapchain) void {
-        self.deinitExceptSwapchain();
-        self.gc.device.destroySwapchainKHR(self.handle, null);
+    pub fn deinit(self: Swapchain, gc: *const GraphicsContext) void {
+        self.deinitExceptSwapchain(gc);
+        gc.device.destroySwapchainKHR(self.handle, null);
     }
 
-    pub fn waitForAllFences(self: Swapchain) !void {
-        for (self.swap_images) |si| si.waitForFence(self.gc) catch {};
+    pub fn waitForAllFences(self: Swapchain, gc: *const GraphicsContext) !void {
+        for (self.swap_images) |si| si.waitForFence(gc) catch {};
     }
 
-    pub fn recreate(self: *Swapchain, new_extent: vk.Extent2D) !void {
-        const gc = self.gc;
+    pub fn recreate(self: *Swapchain, gc: *const GraphicsContext, new_extent: vk.Extent2D) !void {
         const allocator = self.allocator;
         const old_handle = self.handle;
-        self.deinitExceptSwapchain();
+        self.deinitExceptSwapchain(gc);
         self.* = try initRecycle(gc, allocator, new_extent, old_handle);
     }
 
@@ -114,13 +113,13 @@ pub const Swapchain = struct {
         return &self.swap_images[self.image_index];
     }
 
-    pub fn present(self: *Swapchain, cmdbuf: vk.CommandBuffer) !PresentState {
+    pub fn present(self: *Swapchain, gc: *const GraphicsContext, cmdbuf: vk.CommandBuffer) !PresentState {
         const current = self.currentSwapImage();
-        try current.waitForFence(self.gc);
-        try self.gc.device.resetFences(1, @ptrCast(&current.frame_fence));
+        try current.waitForFence(gc);
+        try gc.device.resetFences(1, @ptrCast(&current.frame_fence));
 
         const wait_stage = [_]vk.PipelineStageFlags{.{ .top_of_pipe_bit = true }};
-        try self.gc.device.queueSubmit(self.gc.graphics_queue.handle, 1, &[_]vk.SubmitInfo{.{
+        try gc.device.queueSubmit(gc.graphics_queue.handle, 1, &[_]vk.SubmitInfo{.{
             .wait_semaphore_count = 1,
             .p_wait_semaphores = @ptrCast(&current.image_acquired),
             .p_wait_dst_stage_mask = &wait_stage,
@@ -130,7 +129,7 @@ pub const Swapchain = struct {
             .p_signal_semaphores = @ptrCast(&current.render_finished),
         }}, current.frame_fence);
 
-        _ = try self.gc.device.queuePresentKHR(self.gc.present_queue.handle, &.{
+        _ = try gc.device.queuePresentKHR(gc.present_queue.handle, &.{
             .wait_semaphore_count = 1,
             .p_wait_semaphores = @ptrCast(&current.render_finished),
             .swapchain_count = 1,
@@ -138,7 +137,7 @@ pub const Swapchain = struct {
             .p_image_indices = @ptrCast(&self.image_index),
         });
 
-        const result = try self.gc.device.acquireNextImageKHR(
+        const result = try gc.device.acquireNextImageKHR(
             self.handle,
             std.math.maxInt(u64),
             self.next_image_acquired,
@@ -155,10 +154,10 @@ pub const Swapchain = struct {
         };
     }
 
-    fn deinitExceptSwapchain(self: Swapchain) void {
-        for (self.swap_images) |si| si.deinit(self.gc);
+    fn deinitExceptSwapchain(self: Swapchain, gc: *const GraphicsContext) void {
+        for (self.swap_images) |si| si.deinit(gc);
         self.allocator.free(self.swap_images);
-        self.gc.device.destroySemaphore(self.next_image_acquired, null);
+        gc.device.destroySemaphore(self.next_image_acquired, null);
     }
 };
 

@@ -5,22 +5,36 @@ const c = @import("c.zig");
 const vk = @import("vulkan");
 
 const Renderer = @import("render/renderer.zig").Renderer;
-// const gc = @import("graphics_context.zig");
+const Vertex = @import("render/renderer.zig").Vertex;
+
 const input = @import("input.zig");
-// // const sc = @import("swapchain.zig");
 
 const w = @import("window.zig");
 const Window = w.Window;
 
 const math = @import("math.zig");
 const Vec2 = math.Vec2;
+const Vec2u32 = Vec2(u32);
+const Vec2f32 = Vec2(f32);
+
+const VERTICES = [_]Vertex{
+    .{ .pos = .{ -0.25, -0.125 }, .color = .{ 1, 0, 0 } }, // top left
+    .{ .pos = .{ 0.25, -0.125 }, .color = .{ 0, 1, 0 } }, // top right
+    .{ .pos = .{ -0.25, 0.125 }, .color = .{ 0, 0, 1 } }, // bottom left
+    .{ .pos = .{ 0.25, -0.125 }, .color = .{ 1, 0, 0 } }, // bottom left
+    .{ .pos = .{ 0.25, 0.125 }, .color = .{ 1, 0, 0 } }, // bottom right
+    .{ .pos = .{ -0.25, 0.125 }, .color = .{ 1, 0, 0 } }, // top right
+};
 
 pub const Engine = struct {
     renderer: Renderer,
     window: Window,
     allocator: Allocator,
+    vertices: []Vertex = @constCast(&VERTICES),
+    position: Vec2f32 = Vec2f32.ZERO,
+    direction: Vec2f32 = Vec2f32.ZERO,
 
-    pub fn init(allocator: Allocator, appName: [*:0]const u8, windowSize: Vec2(u32)) !Engine {
+    pub fn init(allocator: Allocator, appName: [*:0]const u8, windowSize: Vec2u32) !Engine {
         const window = try Window.init(windowSize, appName);
         const renderer = try Renderer.init(allocator, appName, window);
 
@@ -32,7 +46,6 @@ pub const Engine = struct {
     }
 
     pub fn deinit(self: Engine) void {
-        std.debug.print("Deinitializing engine\n", .{});
         self.window.deinit();
         self.renderer.deinit();
     }
@@ -43,20 +56,62 @@ pub const Engine = struct {
         while (!self.window.shouldClose()) {
             try self.update();
         }
+
+        try self.end();
+    }
+
+    fn end(self: *Engine) !void {
+        try self.renderer.end();
     }
 
     fn startup(self: *Engine) !void {
+        self.direction = Vec2f32.init(1.0, 0.5 ).normalize();
         try self.renderer.startup();
     }
 
     fn update(self: *Engine) !void {
         const windowSize = self.window.getFrameBufferSize();
-        if (windowSize.eq(Vec2(u32).ZERO)) {
+
+        if (windowSize.eq(Vec2u32.ZERO)) {
             self.window.pollEvents();
             return;
         }
+
+        const speed = 0.0005;
+        self.position = self.position.add(self.direction.scale(speed));
+
+        const vertices = blk: {
+            const vertices = try self.allocator.alloc(Vertex, self.vertices.len);
+
+            for (self.vertices, 0..) |vertex, i| {
+                    const pos = [2]f32{ vertex.pos[0] + self.position.x, vertex.pos[1] + self.position.y };
+                    vertices[i] = Vertex{ .pos = pos, .color = vertex.color };
+            }
+            break :blk vertices;
+        };
+
+        if (self.position.x + 0.25 > 1.0 or self.position.x - 0.25 < -1.0) self.direction.x *= -1.0;
+        if (self.position.y + 0.125 > 1.0 or self.position.y - 0.125 < -1.0) self.direction.y *= -1.0;
+        self.direction = self.direction.normalize();
+
+        try self.renderer.registerVertices(vertices);
 
         try self.renderer.draw(&self.window);
         self.window.pollEvents();
     }
 };
+
+fn sign(p1: Vec2f32, p2: Vec2f32, p3: Vec2f32) f32 {
+    return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+}
+
+fn pointInTriangle(pt: Vec2f32, v1: Vec2f32, v2: Vec2f32, v3: Vec2f32) bool {
+    const d1 = sign(pt, v1, v2);
+    const d2 = sign(pt, v2, v3);
+    const d3 = sign(pt, v3, v1);
+
+    const hasNegative = (d1 < 0) or (d2 < 0) or (d3 < 0);
+    const hasPositive = (d1 > 0) or (d2 > 0) or (d3 > 0);
+
+    return !(hasNegative and hasPositive);
+}

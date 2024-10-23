@@ -1,6 +1,8 @@
 const c = @import("c.zig");
 const math = @import("math.zig");
+const input = @import("input.zig");
 const Vec2 = math.Vec2;
+const Vec2f32 = Vec2(f32);
 
 pub const WindowInitError = error{
     GLFWInitFailed,
@@ -38,6 +40,18 @@ pub const Window = struct {
         ) orelse return error.GlfwWindowCreationFailed;
 
         return Window{ .glfw_window = @constCast(window), .size = size };
+    }
+
+    pub fn keyPressed(self: *const Window, key: input.KeyCode) bool {
+        return input.Keys.keyPressed(self.glfw_window, key);
+    }
+
+    pub fn mousePos(self: *const Window) Vec2f32 {
+        var x: f64 = 0.0;
+        var y: f64 = 0.0;
+        c.glfwGetCursorPos(self.glfw_window, &x, &y);
+
+        return Vec2f32.init(@as(f32, @floatCast(x)) / @as(f32, @floatFromInt(self.size.x)), @as(f32, @floatCast(y)) / @as(f32, @floatFromInt(self.size.y)));
     }
 
     pub fn deinit(self: Window) void {
