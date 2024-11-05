@@ -18,6 +18,10 @@ pub fn build(b: *std.Build) void {
     exe.addLibraryPath(b.path("deps/lib"));
     exe.addIncludePath(b.path("deps/include"));
 
+    // === UUID ===
+    const uuid_dep = b.dependency("uuid", .{});
+    exe.root_module.addImport("uuid", uuid_dep.module("uuid"));
+
     // === VULKAN ===
     const vkzig_dep = b.dependency("vulkan", .{
         .registry = @as([]const u8, b.pathFromRoot("vk.xml")),

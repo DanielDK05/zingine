@@ -158,6 +158,10 @@ pub const GraphicsContext = struct {
             .memory_type_index = try self.findMemoryTypeIndex(requirements.memory_type_bits, flags),
         }, null);
     }
+
+    pub fn free(self: GraphicsContext, memory: vk.DeviceMemory) void {
+        self.device.freeMemory(memory, null);
+    }
 };
 
 fn createSurface(instance: Instance, window: *c.GLFWwindow) !vk.SurfaceKHR {

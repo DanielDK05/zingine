@@ -27,6 +27,10 @@
             .url = "https://github.com/Snektron/vulkan-zig/archive/9bfa67682f68f9daf1c0e7b0f2f0def405f78e7a.tar.gz",
             .hash = "12201514bb791408bbc111d77239fe809a89ca05f3949d763bcb63d7e23bac8ab382",
         },
+        .uuid = .{
+            .url = "https://github.com/MFAshby/uuid-zig/archive/8502283e98200e7863ec3cf2317bfc90d14e2785.tar.gz",
+            .hash = "122038031d7a4faf1d3d46abdf83a99f7cc339f7737cc4bc1801aa12689ea4c8bd21",
+        },
     },
     .paths = .{
         "build.zig",

@@ -1,4 +1,6 @@
 const std = @import("std");
+const assert = std.debug.assert;
+
 const vk = @import("vulkan");
 const c = @import("c.zig");
 const GraphicsContext = @import("render/graphics_context.zig").GraphicsContext;
@@ -13,18 +15,53 @@ const WINDOW_SIZE = Vec2(u32).init(800, 600);
 const SPEED: f32 = 0.001;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer {
-        const result = gpa.deinit();
+    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    // defer {
+    //     const result = gpa.deinit();
+    //
+    //     if (result == .leak) {
+    //         std.debug.print("Memory leakage detected!\n", .{});
+    //     }
+    // }
+    // const allocator = gpa.allocator();
+    //
+    // var engine = try Engine.init(allocator, APP_NAME, WINDOW_SIZE);
+    // defer engine.deinit();
+    //
+    // try engine.run();
 
-        if (result == .leak) {
-            std.debug.print("Memory leakage detected!\n", .{});
-        }
-    }
-    const allocator = gpa.allocator();
+    const ecs = @import("ecs.zig");
 
-    var engine = try Engine.init(allocator, APP_NAME, WINDOW_SIZE);
-    defer engine.deinit();
+    const application = comptime app_build: {
+        var builder = ecs.ApplicationBuilder().init();
+        builder.registerSystem(testSystem);
+        builder.registerSystem(otherSystem);
 
-    try engine.run();
+        break :app_build builder.build();
+    };
+    _ = application;
+}
+
+pub const Position = struct {
+    x: f32 = 0.0,
+    y: f32 = 0.0,
+};
+
+pub const Velocity = struct {
+    x: f32 = 0.0,
+    y: f32 = 0.0,
+};
+
+pub const Test = struct {
+    a: u32,
+};
+
+fn testSystem(query: struct { position: Position, velocity: Velocity }) !void {
+    _ = query;
+
+    std.debug.print("testSystem\n", .{});
+}
+
+fn otherSystem(query: struct { tasldkj: Test }) !void {
+    _ = query;
 }

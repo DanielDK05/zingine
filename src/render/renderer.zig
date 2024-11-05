@@ -60,6 +60,8 @@ pub const Renderer = struct {
     pipeline_layout: vk.PipelineLayout = undefined,
     vertices: []Vertex = @constCast(&[_]Vertex{}),
 
+    cmdbuf_active: bool = false,
+
     pub fn init(allocator: mem.Allocator, app_name: [*:0]const u8, window: Window) !Renderer {
         const gc = try GraphicsContext.init(allocator, app_name, window.glfw_window);
         const sc = try Swapchain.init(&gc, allocator, vk.Extent2D{ .width = window.size.x, .height = window.size.y });
@@ -118,6 +120,9 @@ pub const Renderer = struct {
     pub fn registerVertices(self: *Renderer, vertices: []Vertex) !void {
         self.vertices = vertices;
 
+        if (self.cmdbuf_active) self.destroyCommandBuffers();
+
+        self.graphics_context.device.destroyBuffer(self.buffer, null);
         const buffer = try self.graphics_context.device.createBuffer(&.{
             .size = @as(u64, @truncate(self.vertices.len)) * @sizeOf(Vertex),
             .usage = .{ .transfer_dst_bit = true, .vertex_buffer_bit = true },
@@ -128,11 +133,13 @@ pub const Renderer = struct {
         const memory_requirements = self.graphics_context.device.getBufferMemoryRequirements(buffer);
         const memory = try self.graphics_context.allocate(memory_requirements, .{ .device_local_bit = true });
         try self.graphics_context.device.bindBufferMemory(buffer, memory, 0);
+        self.graphics_context.free(self.memory);
         self.memory = memory;
 
         try self.uploadVertices();
 
         self.command_buffers = try self.createCommandBuffers();
+        self.cmdbuf_active = true;
     }
 
     pub fn draw(self: *Renderer, window: *Window) !void {

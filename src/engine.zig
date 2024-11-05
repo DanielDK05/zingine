@@ -65,7 +65,7 @@ pub const Engine = struct {
     }
 
     fn startup(self: *Engine) !void {
-        self.direction = Vec2f32.init(1.0, 0.5 ).normalize();
+        self.direction = Vec2f32.init(1.0, 0.5).normalize();
         try self.renderer.startup();
     }
 
@@ -84,11 +84,12 @@ pub const Engine = struct {
             const vertices = try self.allocator.alloc(Vertex, self.vertices.len);
 
             for (self.vertices, 0..) |vertex, i| {
-                    const pos = [2]f32{ vertex.pos[0] + self.position.x, vertex.pos[1] + self.position.y };
-                    vertices[i] = Vertex{ .pos = pos, .color = vertex.color };
+                const pos = [2]f32{ vertex.pos[0] + self.position.x, vertex.pos[1] + self.position.y };
+                vertices[i] = Vertex{ .pos = pos, .color = vertex.color };
             }
             break :blk vertices;
         };
+        defer self.allocator.free(vertices);
 
         if (self.position.x + 0.25 > 1.0 or self.position.x - 0.25 < -1.0) self.direction.x *= -1.0;
         if (self.position.y + 0.125 > 1.0 or self.position.y - 0.125 < -1.0) self.direction.y *= -1.0;
@@ -100,18 +101,3 @@ pub const Engine = struct {
         self.window.pollEvents();
     }
 };
-
-fn sign(p1: Vec2f32, p2: Vec2f32, p3: Vec2f32) f32 {
-    return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-}
-
-fn pointInTriangle(pt: Vec2f32, v1: Vec2f32, v2: Vec2f32, v3: Vec2f32) bool {
-    const d1 = sign(pt, v1, v2);
-    const d2 = sign(pt, v2, v3);
-    const d3 = sign(pt, v3, v1);
-
-    const hasNegative = (d1 < 0) or (d2 < 0) or (d3 < 0);
-    const hasPositive = (d1 > 0) or (d2 > 0) or (d3 > 0);
-
-    return !(hasNegative and hasPositive);
-}
