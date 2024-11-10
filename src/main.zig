@@ -3,6 +3,9 @@ const assert = std.debug.assert;
 
 const vk = @import("vulkan");
 const c = @import("c.zig");
+
+const ecs = @import("ecs.zig");
+
 const GraphicsContext = @import("render/graphics_context.zig").GraphicsContext;
 const Swapchain = @import("render/swapchain.zig").Swapchain;
 const Allocator = std.mem.Allocator;
@@ -30,16 +33,32 @@ pub fn main() !void {
     //
     // try engine.run();
 
-    const ecs = @import("ecs.zig");
+    testing(
+        &[_]type{
+            std.ArrayList(u32),
+            std.ArrayList(i32),
+            std.ArrayList(u64),
+            std.ArrayList(u31),
+            std.ArrayList(i23),
+        },
+        std.heap.page_allocator,
+    );
 
-    const application = comptime app_build: {
-        var builder = ecs.ApplicationBuilder().init();
+    var builder = comptime blk: {
+        var builder = ecs.ApplicationBuilder.init();
         builder.registerSystem(testSystem);
         builder.registerSystem(otherSystem);
-
-        break :app_build builder.build();
+        break :blk builder;
     };
-    _ = application;
+
+    const app = builder.build();
+    _ = app;
+}
+
+pub fn testing(comptime T: []const type, allocator: std.mem.Allocator) void {
+    inline for (T) |t| {
+        _ = t.init(allocator);
+    }
 }
 
 pub const Position = struct {

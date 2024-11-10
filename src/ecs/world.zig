@@ -2,15 +2,13 @@ const std = @import("std");
 const mem = std.mem;
 const assert = std.debug.assert;
 
-const uuid = @import("uuid");
-
 const Entity = @import("entity.zig").Entity;
 
 pub const SystemEntry = struct {
     ptr: *anyopaque,
     params: []type,
 
-    fn init(comptime system: anytype) SystemEntry {
+    pub fn init(comptime system: anytype) SystemEntry {
         assert(@typeInfo(@TypeOf(system)) == .@"fn");
 
         switch (@typeInfo(@TypeOf(system))) {
@@ -33,67 +31,56 @@ pub const SystemEntry = struct {
     }
 };
 
-pub fn ApplicationBuilder() type {
-    return struct {
-        const Self = @This();
+pub const ApplicationBuilder = struct {
+    systems: [1024]SystemEntry = undefined,
+    systems_registered: usize = 0,
 
-        systems: [1024]SystemEntry = undefined,
-        systems_registered: usize = 0,
+    pub fn init() ApplicationBuilder {
+        return .{};
+    }
 
-        pub fn init() Self {
-            return Self{};
-        }
+    pub fn build(self: ApplicationBuilder) Application {
+        return Application.init(.{ .systems = self.systems[0..self.systems_registered] }, std.heap.page_allocator);
+    }
 
-        pub fn build(self: Self) Application {
-            const registry = ComponentRegistry(self.systems[0..self.systems_registered]);
+    pub fn registerSystem(self: *ApplicationBuilder, system: anytype) void {
+        self.systems[self.systems_registered] = SystemEntry.init(system);
+        self.systems_registered += 1;
+    }
+};
 
-            for (std.meta.fields(registry)) |field| {
-                @compileLog(field.name, field.type);
-            }
-
-            @compileError("Not implemented");
-            // return Application.init(std.heap.page_allocator, self.systems[0..self.systems_registered]);
-        }
-
-        pub fn registerSystem(self: *Self, system: anytype) void {
-            self.systems[self.systems_registered] = SystemEntry.init(system);
-            self.systems_registered += 1;
-        }
-    };
-}
-
-fn ComponentRegistry(comptime systems: []const SystemEntry) type {
+pub fn ComponentRegistry(systems: []const SystemEntry) type {
     var components: []const std.builtin.Type.StructField = &[_]std.builtin.Type.StructField{};
 
-    var prng = std.Random.DefaultPrng.init(0);
-    var i = 0;
+    var prng = std.Random.DefaultPrng.init(69_420);
+
     for (systems) |system_entry| {
-        for (system_entry.params) |param| {
-            switch (@typeInfo(param)) {
-                .@"struct" => |struct_info| {
-                    for (struct_info.fields) |component| {
-                        var found = false;
-                        for (components) |registered_component| {
-                            if (std.meta.eql(component, registered_component)) {
-                                found = true;
-                                break;
-                            }
-                        }
+        inline for (system_entry.params) |param| {
+            const param_info = @typeInfo(param);
+            if (param_info != .@"struct") @compileError("Dickhead");
 
-                        if (!found) {
-                            components = components ++ &[_]std.builtin.Type.StructField{.{
-                                .name = @typeName(component.type) ++ std.fmt.comptimePrint("_{d}", .{prng.random().int(u32)}),
-                                .type = std.ArrayList(component.type),
-                                .default_value = null,
-                                .is_comptime = false,
-                                .alignment = 64,
-                            }};
+            const query = param_info.@"struct";
 
-                            i += 1;
-                        }
+            inline for (query.fields) |component| {
+                var found = false;
+
+                for (components) |registered_component| {
+                    if (std.meta.eql(component.type, registered_component.type)) {
+                        found = true;
+                        break;
                     }
-                },
-                else => {},
+                }
+
+                if (!found) {
+                    // @compileLog("Adding component" ++ @typeName(component.type));
+                    components = components ++ &[_]std.builtin.Type.StructField{.{
+                        .name = @typeName(component.type) ++ std.fmt.comptimePrint("_{d}", .{prng.random().int(u32)}),
+                        .type = std.ArrayList(component.type),
+                        .default_value = null,
+                        .is_comptime = false,
+                        .alignment = 64,
+                    }};
+                }
             }
         }
     }
@@ -108,17 +95,43 @@ fn ComponentRegistry(comptime systems: []const SystemEntry) type {
     });
 }
 
-pub const Application = struct {
-    world: World,
-    systems: []SystemEntry,
-    component_registry: ComponentRegistry,
+pub fn initComponentRegistry(comptime systems: []const SystemEntry, allocator: mem.Allocator) ComponentRegistry(systems) {
+    const Registry = ComponentRegistry(systems);
 
-    pub fn init(allocator: mem.Allocator, systems: []SystemEntry) Application {
+    var result: Registry = undefined;
+
+    inline for (std.meta.fields(Registry)) |field| {
+        @field(result, field.name) = field.type.init(allocator);
+    }
+
+    return result;
+}
+
+pub const ApplicationConfig = struct {
+    systems: []const SystemEntry,
+};
+
+pub const Application = struct {
+    allocator: mem.Allocator,
+    world: World,
+    config: ApplicationConfig,
+    registry: *anyopaque,
+
+    pub fn init(comptime config: ApplicationConfig, allocator: mem.Allocator) !Application {
+        const registry = initComponentRegistry(config.systems, allocator);
+        const registry_ptr = try allocator.create(@TypeOf(registry));
+        registry_ptr.* = registry;
+
         return Application{
+            .allocator = allocator,
             .world = World.init(allocator),
-            .systems = systems,
-            .component_registry = ComponentRegistry(systems),
+            .registry = @as(*anyopaque, @constCast(registry_ptr)),
+            .config = config,
         };
+    }
+
+    pub fn deinit(self: Application) void {
+        self.allocator.destroy(self.registry);
     }
 };
 
