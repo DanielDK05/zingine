@@ -19,37 +19,37 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(b.path("deps/include"));
 
     // === VULKAN ===
-    const vkzig_dep = b.dependency("vulkan", .{
-        .registry = @as([]const u8, b.pathFromRoot("vk.xml")),
-    });
-    const vkzig_bindings = vkzig_dep.module("vulkan-zig");
-    exe.root_module.addImport("vulkan", vkzig_bindings);
+    // const vkzig_dep = b.dependency("vulkan", .{
+    //     .registry = @as([]const u8, b.pathFromRoot("vk.xml")),
+    // });
+    // const vkzig_bindings = vkzig_dep.module("vulkan-zig");
+    // exe.root_module.addImport("vulkan", vkzig_bindings);
 
     // === GLFW ===
-    exe.linkSystemLibrary("glfw3");
+    // exe.linkSystemLibrary("glfw3");
     // WINDOWS ONLY --> exe.linkSystemLibrary("gdi32");
 
-    const vert_cmd = b.addSystemCommand(&.{
-        "glslc",
-        "--target-env=vulkan1.2",
-        "-o",
-    });
-    const vert_spv = vert_cmd.addOutputFileArg("vert.spv");
-    vert_cmd.addFileArg(b.path("src/shaders/triangle.vert"));
-    exe.root_module.addAnonymousImport("vertex_shader", .{
-        .root_source_file = vert_spv,
-    });
+    // const vert_cmd = b.addSystemCommand(&.{
+    //     "glslc",
+    //     "--target-env=vulkan1.2",
+    //     "-o",
+    // });
+    // const vert_spv = vert_cmd.addOutputFileArg("vert.spv");
+    // vert_cmd.addFileArg(b.path("src/shaders/triangle.vert"));
+    // exe.root_module.addAnonymousImport("vertex_shader", .{
+    //     .root_source_file = vert_spv,
+    // });
 
-    const frag_cmd = b.addSystemCommand(&.{
-        "glslc",
-        "--target-env=vulkan1.2",
-        "-o",
-    });
-    const frag_spv = frag_cmd.addOutputFileArg("frag.spv");
-    frag_cmd.addFileArg(b.path("src/shaders/triangle.frag"));
-    exe.root_module.addAnonymousImport("fragment_shader", .{
-        .root_source_file = frag_spv,
-    });
+    // const frag_cmd = b.addSystemCommand(&.{
+    //     "glslc",
+    //     "--target-env=vulkan1.2",
+    //     "-o",
+    // });
+    // const frag_spv = frag_cmd.addOutputFileArg("frag.spv");
+    // frag_cmd.addFileArg(b.path("src/shaders/triangle.frag"));
+    // exe.root_module.addAnonymousImport("fragment_shader", .{
+    //     .root_source_file = frag_spv,
+    // });
 
     const run_cmd = b.addRunArtifact(exe);
 

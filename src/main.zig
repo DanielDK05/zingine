@@ -1,86 +1,66 @@
 const std = @import("std");
-const assert = std.debug.assert;
+// const assert = std.debug.assert;
 
-const vk = @import("vulkan");
-const c = @import("c.zig");
+// const ecs = @import("ecs.zig");
 
-const ecs = @import("ecs.zig");
+// const Allocator = std.mem.Allocator;
 
-const GraphicsContext = @import("render/graphics_context.zig").GraphicsContext;
-const Swapchain = @import("render/swapchain.zig").Swapchain;
-const Allocator = std.mem.Allocator;
+// const Engine = @import("engine.zig").Engine;
+// const Vec2 = @import("math.zig").Vec2;
 
-const Engine = @import("engine.zig").Engine;
-const Vec2 = @import("math.zig").Vec2;
+// const APP_NAME = "Project Greasy Hands!";
+// const WINDOW_SIZE = Vec2(u32).init(800, 600);
+// const SPEED: f32 = 0.001;
 
-const APP_NAME = "Project Greasy Hands!";
-const WINDOW_SIZE = Vec2(u32).init(800, 600);
-const SPEED: f32 = 0.001;
+const query = @import("ecs/query.zig");
+
+const SELECT = query.Keywords.SELECT;
+const WITH = query.Keywords.WITH;
 
 pub fn main() !void {
-    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    // defer {
-    //     const result = gpa.deinit();
-    //
-    //     if (result == .leak) {
-    //         std.debug.print("Memory leakage detected!\n", .{});
-    //     }
-    // }
-    // const allocator = gpa.allocator();
-    //
-    // var engine = try Engine.init(allocator, APP_NAME, WINDOW_SIZE);
-    // defer engine.deinit();
-    //
-    // try engine.run();
+    // const systems = comptime blk: {
+    //     var builder = ecs.ApplicationBuilder{};
 
-    testing(
-        &[_]type{
-            std.ArrayList(u32),
-            std.ArrayList(i32),
-            std.ArrayList(u64),
-            std.ArrayList(u31),
-            std.ArrayList(i23),
-        },
-        std.heap.page_allocator,
-    );
+    //     builder.addSystem(&testSystem1);
+    //     builder.addSystem(&testSystem2);
+    //     builder.addSystem(&testSystem3);
 
-    var builder = comptime blk: {
-        var builder = ecs.ApplicationBuilder.init();
-        builder.registerSystem(testSystem);
-        builder.registerSystem(otherSystem);
-        break :blk builder;
-    };
+    //     const systems = builder.registry();
 
-    const app = builder.build();
-    _ = app;
-}
+    //     break :blk systems;
+    // };
 
-pub fn testing(comptime T: []const type, allocator: std.mem.Allocator) void {
-    inline for (T) |t| {
-        _ = t.init(allocator);
+    // systems[0].*();
+    // systems[1].*(69);
+
+    for (0..10) |_| {
+        std.log.info("time: {}", .{std.time.microTimestamp()});
     }
 }
 
-pub const Position = struct {
-    x: f32 = 0.0,
-    y: f32 = 0.0,
-};
-
-pub const Velocity = struct {
-    x: f32 = 0.0,
-    y: f32 = 0.0,
-};
-
-pub const Test = struct {
-    a: u32,
-};
-
-fn testSystem(query: struct { position: Position, velocity: Velocity }) !void {
-    _ = query;
-
-    std.debug.print("testSystem\n", .{});
+fn Test(comptime T: type) type {
+    return struct {
+        value: T,
+    };
 }
 
-fn otherSystem(query: struct { tasldkj: Test }) !void {
-    _ = query;
+const Player = struct {
+    id: u32,
+};
+
+const Sword = struct {
+    damage: u32,
+};
+
+const Apple = struct {
+    color: u32,
+};
+
+fn testSystem1(test_query: query.Query(.{ SELECT, Player, Sword, WITH, Apple })) void {
+    _ = test_query;
+    std.debug.print("Hello, ECS!\n", .{});
+}
+
+test {
+    std.testing.refAllDecls(@This());
 }
