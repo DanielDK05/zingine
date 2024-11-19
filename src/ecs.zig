@@ -1,10 +1,11 @@
 pub const world = @import("ecs/world.zig");
+pub const application = @import("ecs/application.zig");
 pub const entity = @import("ecs/entity.zig");
+pub const storage = @import("ecs/storage.zig");
 
 pub const World = world.World;
-pub const SystemEntry = world.SystemEntry;
-pub const ApplicationBuilder = world.ApplicationBuilder;
-pub const Application = world.Application;
+pub const ApplicationBuilder = application.ApplicationBuilder;
+pub const Application = application.Application;
 pub const Entity = entity.Entity;
 
 // ==== Query ====

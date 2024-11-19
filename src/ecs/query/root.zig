@@ -69,11 +69,11 @@ pub fn Query(comptime query: anytype) type {
     };
 
     const Result = blk: {
-        const struct_fields: []StructField = &[_]StructField{};
+        var struct_fields: []const StructField = &[_]StructField{};
 
         inline for (parse_result.result, 0..) |field_type, i| {
             struct_fields = struct_fields ++ &[_]StructField{.{
-                .alignment = @sizeOf(field_type),
+                .alignment = @alignOf(field_type),
                 .name = std.fmt.comptimePrint("{d}", .{i}),
                 .default_value = null,
                 .is_comptime = false,

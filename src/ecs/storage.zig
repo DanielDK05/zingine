@@ -4,55 +4,72 @@ const StructField = std.builtin.Type.StructField;
 
 const ApplicationBuilder = @import("application.zig").ApplicationBuilder;
 
-fn Registry(comptime builder: *const ApplicationBuilder) type {
+pub fn Registry(comptime builder: *const ApplicationBuilder) type {
+    const Components = ComponentMap(builder);
+    const Systems = SystemRegistry(builder);
+
     return struct {
-        comptime component_map: ComponentMap(builder) = ComponentMap(builder){},
-        systems: SystemRegistry(builder),
-        // components: ComponentRegistry(builder),
+        const Self = @This();
 
-        fn init(comptime builder_: *const ApplicationBuilder) void {
-            const Systems = SystemRegistry(builder_);
-
-            var systems: Systems = undefined;
-            inline for (std.meta.fields(Systems), 0..) |field, i| {
-                systems[i] = @as(field.type, @constCast(@ptrCast(@alignCast(&builder.systems[i]))));
-            }
-
-            // const Components = ComponentRegistry(builder_);
-
-            // var components: Components = undefined;
-            // inline for (std.meta.fields(Components), 0..) |field, i| {
-            //     components[i] = std.ArrayList(field.type).init(allocator);
-            // }
-
-            return .{
-                .systems = systems,
-                // .components = components,
+        pub const SystemIterator = struct {
+            pub const Entry = struct {
+                system_ptr: *const anyopaque,
+                // type: type,
             };
+
+            comptime systems: Systems = Systems{},
+            idx: u32 = 0,
+
+            pub fn next(self: *SystemIterator) ?Entry {
+                if (self.idx < std.meta.fields(self.systems).len) {
+                    const entry = self.systems[self.idx];
+                    self.idx += 1;
+
+                    return Entry{
+                        .system_ptr = @constCast(entry),
+                        // .type = @TypeOf(entry),
+                    };
+                }
+
+                return null;
+            }
+        };
+
+        comptime components: Components = Components{},
+        comptime systems: Systems = Systems{},
+
+        pub fn init() Self {
+            return Self{};
         }
 
-        fn getComponentIdx(self: *const Registry, comptime Component: type) u32 {
-            comptime for (0..std.meta.fields(self.component_map).len) |i| {
-                const entry = self.component_map[i];
+        pub fn getComponentIdx(self: *const Self, comptime Component: type) u32 {
+            inline for (0..std.meta.fields(self.components).len) |i| {
+                const entry = self.components[i];
                 if (entry.component == Component) {
                     return entry.key;
                 }
-            };
+            }
 
             @compileError("Tried to get component index for a component that doesn't exist in the component map.");
+        }
+
+        pub fn systemIterator(self: *const Self) SystemIterator {
+            _ = self;
+            return SystemIterator{};
         }
     };
 }
 
-fn SystemRegistry(comptime builder: *const ApplicationBuilder) type {
-    var fields = [_]StructField{};
+pub fn SystemRegistry(comptime builder: *const ApplicationBuilder) type {
+    var fields: []const StructField = &[_]StructField{};
 
-    for (builder.system_types, 0..) |System, i| {
+    inline for (builder.system_types, 0..) |system, i| {
+        const System = ValidateAndExtractSystemPtr(system);
         fields = fields ++ &[_]StructField{.{
-            .alignment = @sizeOf(*anyopaque),
+            .alignment = @alignOf(System),
             .name = std.fmt.comptimePrint("{d}", .{i}),
-            .default_value = null,
-            .is_comptime = false,
+            .default_value = builder.system_ptrs[i],
+            .is_comptime = true,
             .type = System,
         }};
     }
@@ -67,21 +84,64 @@ fn SystemRegistry(comptime builder: *const ApplicationBuilder) type {
     });
 }
 
-fn ComponentRegistry(comptime builder: *const ApplicationBuilder) type {
-    var fields = [_]StructField{};
+pub fn ComponentMap(comptime builder: *const ApplicationBuilder) type {
+    var fields: []const StructField = &[_]StructField{};
 
-    for (builder.system_types, 0..) |system_type, i| {
-        assert(@typeInfo(system_type) != .@"fn");
+    for (builder.system_types, 0..) |system, i| {
+        const System = ValidateAndExtractSystemPtr(system);
+        const args = std.meta.fields(std.meta.ArgsTuple(System));
 
-        for (std.meta.ArgsTuple(system_type)) |arg| {
-            // IF QUERY
+        const Flags = std.meta.Int(.unsigned, 3);
+        const Entry = struct {
+            key: Flags,
+            component: type,
+        };
+
+        for (args) |arg| {
+            // TODO: if query
             if (true) {
-                for (std.meta.fields(@TypeOf(arg))) |component_type| {
-                    const ComponentList = std.ArrayList(component_type);
+                for (std.meta.fields(@TypeOf(arg))) |field| {
+                    fields = fields ++ &[_]StructField{.{
+                        .alignment = @sizeOf(Entry),
+                        .name = std.fmt.comptimePrint("{d}", .{fields.len}),
+                        .default_value = @constCast(&Entry{
+                            .key = std.math.pow(Flags, 2, i),
+                            .component = field.type,
+                        }),
+                        .is_comptime = true,
+                        .type = Entry,
+                    }};
+                }
+            }
+        }
+    }
+
+    return @Type(.{
+        .@"struct" = .{
+            .decls = &[_]std.builtin.Type.Declaration{},
+            .fields = fields,
+            .is_tuple = true,
+            .layout = .auto,
+        },
+    });
+}
+
+pub fn ComponentStorage(comptime builder: *const ApplicationBuilder) type {
+    var fields: []const StructField = &[_]StructField{};
+
+    for (builder.system_types) |system_type| {
+        const System = ValidateAndExtractSystemPtr(system_type);
+
+        const args = std.meta.ArgsTuple(System);
+        for (std.meta.fields(args)) |arg| {
+            // TODO: if query
+            if (true) {
+                for (std.meta.fields(arg.type)) |component| {
+                    const ComponentList = std.ArrayList(component.type);
 
                     fields = fields ++ &[_]StructField{.{
-                        .alignment = @sizeOf(ComponentList),
-                        .name = std.fmt.comptimePrint("{d}", .{i}),
+                        .alignment = @alignOf(ComponentList),
+                        .name = std.fmt.comptimePrint("{d}", .{fields.len}),
                         .default_value = null,
                         .is_comptime = false,
                         .type = ComponentList,
@@ -101,45 +161,12 @@ fn ComponentRegistry(comptime builder: *const ApplicationBuilder) type {
     });
 }
 
-fn ComponentMap(comptime builder: *const ApplicationBuilder) type {
-    var fields = [_]StructField{};
+fn ValidateAndExtractSystemPtr(system: type) type {
+    const type_info = @typeInfo(system);
+    comptime assert(type_info == .pointer);
 
-    for (builder.system_types, 0..) |System, i| {
-        assert(@typeInfo(System) != .@"fn");
+    const system_info = @typeInfo(type_info.pointer.child);
+    comptime assert(system_info == .@"fn");
 
-        const args = std.meta.fields(std.meta.ArgsTuple(System));
-
-        const Flags = std.meta.Int(.unsigned, args.len);
-        const Map = struct {
-            key: Flags,
-            component: type,
-        };
-
-        for (args) |arg| {
-            // IF QUERY
-            if (true) {
-                for (std.meta.fields(@TypeOf(arg))) |Component| {
-                    fields = fields ++ &[_]StructField{.{
-                        .alignment = @sizeOf(Map),
-                        .name = std.fmt.comptimePrint("{d}", .{i}),
-                        .default_value = .{
-                            .key = std.math.pow(Flags.key, 2, i),
-                            .component = Component,
-                        },
-                        .is_comptime = true,
-                        .type = Map,
-                    }};
-                }
-            }
-        }
-    }
-
-    return @Type(.{
-        .@"struct" = .{
-            .decls = &[_]std.builtin.Type.Declaration{},
-            .fields = fields,
-            .is_tuple = true,
-            .layout = .auto,
-        },
-    });
+    return @Type(system_info);
 }

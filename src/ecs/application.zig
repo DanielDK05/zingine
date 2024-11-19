@@ -1,24 +1,74 @@
 const std = @import("std");
+const mem = std.mem;
 const assert = std.debug.assert;
 const StructField = std.builtin.Type.StructField;
 
-const storage = @import("storage.zig");
+const ecs = @import("../ecs.zig");
+
+/// Should not be used directly, use `ApplicationBuilder` instead.
+pub fn Application(comptime builder: *const ApplicationBuilder) type {
+    const World = ecs.World(builder);
+    const registry = ecs.storage.Registry(builder).init();
+
+    return struct {
+        const Self = @This();
+
+        comptime registry: @TypeOf(registry) = registry,
+        world: World,
+
+        pub fn init(allocator: mem.Allocator) Self {
+            return .{
+                .world = World.init(allocator),
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.world.deinit();
+        }
+
+        pub fn run(self: *Self) !void {
+            self.runSystems();
+        }
+
+        fn runSystems(self: *Self) void {
+            inline for (0..std.meta.fields(@TypeOf(self.registry.systems)).len) |i| {
+                const system = self.registry.systems[i];
+
+                const args = std.meta.ArgsTuple(@TypeOf(system));
+                var paramsToPass: args = undefined;
+                comptime var j: usize = 0;
+                inline for (std.meta.fields(args)) |arg| {
+                    // TODO: if not query
+                    if (false) {
+                        continue;
+                    }
+
+                    const queryResult = std.meta.fields(arg.type)[0]; // assumes only one field
+                    inline for (std.meta.fields(queryResult.type)) |component| {
+                        // paramsToPass[j] = self.world.components[self.registry.getComponentIdx(component.type)];
+                        _ = component;
+                        paramsToPass[0].result = self.world.components[0].items[0];
+                        j += 1;
+                    }
+                }
+
+                try @call(.auto, system, paramsToPass);
+            }
+        }
+    };
+}
 
 pub const ApplicationBuilder = struct {
-    system_ptrs: []const *anyopaque = &[_]*anyopaque{},
-    system_types: []type = &[_]type{},
+    system_ptrs: []const *const anyopaque = &[_]*const anyopaque{},
+    system_types: []const type = &[_]type{},
 
     pub fn addSystem(comptime self: *ApplicationBuilder, comptime system: anytype) void {
-        self.system_types = self.system_types ++ &[_]type{*const @TypeOf(system)};
-        self.system_ptrs = self.system_ptrs ++ &[_]*anyopaque{@as(*anyopaque, @constCast(@ptrCast(system)))};
+        self.system_types = self.system_types ++ &[_]type{@TypeOf(system)};
+        self.system_ptrs = self.system_ptrs ++ &[_]*const anyopaque{@constCast(system)};
     }
 
-    pub fn build(comptime self: ApplicationBuilder) Application(storage.Registry(self)) {
-        var Registry = storage.Registry(self.system_fields);
-
-        return Application(Registry).init(
-            Registry.init(self),
-        );
+    pub fn build(comptime self: *const ApplicationBuilder) Application(self) {
+        return Application(self).init(std.heap.page_allocator);
     }
 
     pub fn components(comptime self: *ApplicationBuilder) []type {
@@ -47,15 +97,3 @@ pub const ApplicationBuilder = struct {
         }
     }
 };
-
-pub fn Application(comptime Registry: type) type {
-    return struct {
-        registry: Registry,
-
-        pub fn init(registry: Registry) Application {
-            return Application{
-                .registry = registry,
-            };
-        }
-    };
-}
