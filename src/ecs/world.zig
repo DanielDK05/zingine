@@ -24,6 +24,18 @@ pub fn World(comptime builder: *const ecs.ApplicationBuilder) type {
             self.entities.deinit();
         }
 
+        pub fn spawnEntity(self: Self) mem.Allocator.Error!ecs.Entity {
+            const entity = ecs.Entity{ .id = self.entities.len };
+            try self.entities.append(entity);
+            return entity;
+        }
+
+        // pub fn attachComponent(self: Self, entity: ecs.Entity, component: anytype) void {
+        //     assert(entity.id < self.entities.len);
+        //
+        //
+        // }
+
         fn initComponents(allocator: mem.Allocator) ComponentStorage {
             var components: ComponentStorage = undefined;
 

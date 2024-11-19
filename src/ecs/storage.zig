@@ -1,8 +1,10 @@
 const std = @import("std");
+const mem = std.mem;
 const assert = std.debug.assert;
 const StructField = std.builtin.Type.StructField;
 
 const ApplicationBuilder = @import("application.zig").ApplicationBuilder;
+const utils = @import("../utils.zig");
 
 pub fn Registry(comptime builder: *const ApplicationBuilder) type {
     const Components = ComponentMap(builder);
@@ -42,16 +44,16 @@ pub fn Registry(comptime builder: *const ApplicationBuilder) type {
             return Self{};
         }
 
-        pub fn getComponentIdx(self: *const Self, comptime Component: type) u32 {
-            inline for (0..std.meta.fields(self.components).len) |i| {
-                const entry = self.components[i];
-                if (entry.component == Component) {
-                    return entry.key;
-                }
-            }
-
-            @compileError("Tried to get component index for a component that doesn't exist in the component map.");
-        }
+        // pub fn getComponentIdx(self: *const Self, comptime Component: type) ComponentFlags(self.components) {
+        //     inline for (0..std.meta.fields(self.components).len) |i| {
+        //         const entry = self.components[i];
+        //         if (entry.component == Component) {
+        //             return entry.key;
+        //         }
+        //     }
+        //
+        //     @compileError("Tried to get component index for a component that doesn't exist in the component map.");
+        // }
 
         pub fn systemIterator(self: *const Self) SystemIterator {
             _ = self;

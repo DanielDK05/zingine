@@ -14,16 +14,22 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
         const Self = @This();
 
         comptime registry: @TypeOf(registry) = registry,
+
+        allocator: mem.Allocator,
         world: World,
+        // command_bus: ecs.CommandBus,
 
         pub fn init(allocator: mem.Allocator) Self {
             return .{
+                .allocator = allocator,
                 .world = World.init(allocator),
+                // .command_bus = ecs.CommandBus.init(allocator),
             };
         }
 
         pub fn deinit(self: *Self) void {
             self.world.deinit();
+            // self.command_bus.deinit();
         }
 
         pub fn run(self: *Self) !void {
@@ -35,9 +41,9 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
                 const system = self.registry.systems[i];
 
                 const args = std.meta.ArgsTuple(@TypeOf(system));
-                var paramsToPass: args = undefined;
+                // var paramsToPass: args = undefined;
                 comptime var j: usize = 0;
-                inline for (std.meta.fields(args)) |arg| {
+                inline for (std.meta.fields(args), 0..) |arg, k| {
                     // TODO: if not query
                     if (false) {
                         continue;
@@ -47,12 +53,25 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
                     inline for (std.meta.fields(queryResult.type)) |component| {
                         // paramsToPass[j] = self.world.components[self.registry.getComponentIdx(component.type)];
                         _ = component;
-                        paramsToPass[0].result = self.world.components[0].items[0];
+                        _ = k;
+                        // paramsToPass[k].result = self.world.components[0].items[0];
                         j += 1;
                     }
                 }
 
-                try @call(.auto, system, paramsToPass);
+                // try @call(.auto, system, .{});
+
+                // const requests = self.command_bus.flush();
+                // defer self.allocator.free(requests);
+                //
+                // for (requests) |request| {
+                //     switch (request) {
+                //         .spawn => {},
+                //         .attach => |entity, C| {
+                //             self.world.spawnEntity();
+                //         },
+                //     }
+                // }
             }
         }
     };
@@ -61,6 +80,10 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
 pub const ApplicationBuilder = struct {
     system_ptrs: []const *const anyopaque = &[_]*const anyopaque{},
     system_types: []const type = &[_]type{},
+
+    pub fn init() ApplicationBuilder {
+        return .{};
+    }
 
     pub fn addSystem(comptime self: *ApplicationBuilder, comptime system: anytype) void {
         self.system_types = self.system_types ++ &[_]type{@TypeOf(system)};

@@ -12,8 +12,8 @@ const std = @import("std");
 // const WINDOW_SIZE = Vec2(u32).init(800, 600);
 // const SPEED: f32 = 0.001;
 
-const ecs = @import("ecs.zig");
-const query = @import("ecs/query.zig");
+pub const ecs = @import("ecs.zig");
+pub const query = @import("ecs/query.zig");
 
 const SELECT = query.Keywords.SELECT;
 const WITH = query.Keywords.WITH;
@@ -22,7 +22,7 @@ pub fn main() !void {
     var application = comptime blk: {
         var builder = ecs.ApplicationBuilder{};
 
-        builder.addSystem(&testSystem1);
+        builder.addSystem(&testSystem2);
 
         break :blk builder.build();
     };
@@ -49,12 +49,20 @@ const Apple = struct {
     color: u32,
 };
 
-fn testSystem1(test_query: ecs.Query(.{ SELECT, Player, Sword, WITH, Apple })) !void {
+fn testSystem1(command_bus: ecs.CommandBus) !void {
+    std.debug.print("Hello, ECS! testSystem1\n", .{});
+
+    command_bus.spawnEntity();
+    command_bus.registerComponent(.{ .id = 0 }, Player);
+    command_bus.registerComponent(.{ .id = 0 }, Sword);
+}
+
+fn testSystem2(test_query: ecs.Query(.{ SELECT, Player, Sword, WITH, Apple })) !void {
     const player, const sword = test_query.result;
 
     std.debug.print("Hello, ECS! id: {d} dmg: {d}\n", .{ player.id, sword.damage });
 }
 
 test {
-    std.testing.refAllDecls(@This());
+    std.testing.refAllDeclsRecursive(@This());
 }
