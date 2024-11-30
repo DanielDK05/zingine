@@ -33,33 +33,36 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
         }
 
         pub fn run(self: *Self) !void {
-            self.runSystems();
+            try self.runSystems();
         }
 
-        fn runSystems(self: *Self) void {
+        fn runSystems(self: *Self) !void {
             inline for (0..std.meta.fields(@TypeOf(self.registry.systems)).len) |i| {
                 const system = self.registry.systems[i];
 
                 const args = std.meta.ArgsTuple(@TypeOf(system));
-                // var paramsToPass: args = undefined;
-                comptime var j: usize = 0;
-                inline for (std.meta.fields(args), 0..) |arg, k| {
-                    // TODO: if not query
-                    if (false) {
+                var paramsToPass: GetSystemParams(system) = undefined;
+
+                inline for (std.meta.fields(args), 0..) |arg, cur_param_index| {
+                    if (arg.type == ecs.IWorld) {
+                        paramsToPass[cur_param_index] = self.world.iworld();
+
                         continue;
                     }
 
-                    const queryResult = std.meta.fields(arg.type)[0]; // assumes only one field
-                    inline for (std.meta.fields(queryResult.type)) |component| {
-                        // paramsToPass[j] = self.world.components[self.registry.getComponentIdx(component.type)];
-                        _ = component;
-                        _ = k;
-                        // paramsToPass[k].result = self.world.components[0].items[0];
-                        j += 1;
+                    if (ecs.system.Param.from(arg.type) != .query) {
+                        continue;
                     }
+
+                    // const queryResult = arg.type.Result();
+                    // inline for (std.meta.fields(queryResult)) |component| {
+                    //     _ = component;
+                    //     paramsToPass[k][j] = undefined;
+                    //     j += 1;
+                    // }
                 }
 
-                // try @call(.auto, system, .{});
+                try @call(.auto, system, paramsToPass);
 
                 // const requests = self.command_bus.flush();
                 // defer self.allocator.free(requests);
@@ -73,6 +76,47 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
                 //     }
                 // }
             }
+        }
+
+        fn GetSystemParams(comptime system: anytype) type {
+            var fields: []const StructField = &[_]StructField{};
+
+            const args = std.meta.ArgsTuple(@TypeOf(system));
+
+            inline for (std.meta.fields(args)) |field| {
+                if (field.type == ecs.IWorld) {
+                    fields = fields ++ &[_]StructField{.{
+                        .alignment = @alignOf(field.type),
+                        .name = std.fmt.comptimePrint("{d}", .{fields.len}),
+                        .default_value = null,
+                        .is_comptime = false,
+                        .type = field.type,
+                    }};
+
+                    continue;
+                }
+
+                if (ecs.system.Param.from(field.type) != .query) {
+                    continue;
+                }
+
+                fields = fields ++ &[_]StructField{.{
+                    .alignment = @alignOf(field.type),
+                    .name = std.fmt.comptimePrint("{d}", .{fields.len}),
+                    .default_value = null,
+                    .is_comptime = false,
+                    .type = field.type,
+                }};
+            }
+
+            return @Type(.{
+                .@"struct" = .{
+                    .layout = .auto,
+                    .fields = fields,
+                    .decls = &[_]std.builtin.Type.Declaration{},
+                    .is_tuple = true,
+                },
+            });
         }
     };
 }
@@ -94,29 +138,29 @@ pub const ApplicationBuilder = struct {
         return Application(self).init(std.heap.page_allocator);
     }
 
-    pub fn components(comptime self: *ApplicationBuilder) []type {
-        var fields = [_]StructField{};
+    pub fn components(comptime self: *const ApplicationBuilder) []const type {
+        var types: []const type = &[_]type{};
 
         for (self.system_types) |system_type| {
-            assert(@typeInfo(system_type) != .@"fn");
+            assert(@typeInfo(system_type) == .pointer);
+            const pointer_child = @typeInfo(system_type).pointer.child;
+            assert(@typeInfo(pointer_child) == .@"fn");
 
-            const args = std.meta.fields(std.meta.ArgsTuple(system_type));
-            const Flags = std.meta.Int(.unsigned, args.len);
+            const args = std.meta.fields(std.meta.ArgsTuple(pointer_child));
 
             for (args) |arg| {
-                // IF QUERY
-                if (true) {
-                    for (std.meta.fields(@TypeOf(arg)), 0..) |_, i| {
-                        fields = fields ++ &[_]StructField{.{
-                            .alignment = @sizeOf(Flags),
-                            .name = std.fmt.comptimePrint("{d}", .{i}),
-                            .default_value = std.math.pow(Flags, 2, i),
-                            .is_comptime = true,
-                            .type = Flags,
-                        }};
+                if (arg.type == ecs.IWorld) {
+                    continue;
+                }
+
+                if (ecs.system.Param.from(arg.type) == .query) {
+                    for (std.meta.fields(arg.type.Result())) |field| {
+                        types = types ++ &[_]type{field.type};
                     }
                 }
             }
         }
+
+        return types;
     }
 };

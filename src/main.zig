@@ -28,13 +28,14 @@ pub fn main() !void {
     };
     defer application.deinit();
 
-    try application.run();
-}
+    const entity = try application.world.spawnEntity2();
+    try application.world.attachComponents2(entity, .{
+        Player{ .id = 0 },
+        Sword{ .damage = 10 },
+        Apple{ .color = .red },
+    });
 
-fn Test(comptime T: type) type {
-    return struct {
-        value: T,
-    };
+    try application.run();
 }
 
 const Player = struct {
@@ -46,21 +47,25 @@ const Sword = struct {
 };
 
 const Apple = struct {
-    color: u32,
+    color: enum { red, green },
 };
 
-fn testSystem1(command_bus: ecs.CommandBus) !void {
-    std.debug.print("Hello, ECS! testSystem1\n", .{});
-
-    command_bus.spawnEntity();
-    command_bus.registerComponent(.{ .id = 0 }, Player);
-    command_bus.registerComponent(.{ .id = 0 }, Sword);
+fn testSystem3(world: ecs.IWorld) !void {
+    _ = world;
 }
 
-fn testSystem2(test_query: ecs.Query(.{ SELECT, Player, Sword, WITH, Apple })) !void {
-    const player, const sword = test_query.result;
+// fn testSystem1(world: ecs.IWorld) !void {
+//     const entity = try world.spawnEntity();
+//     std.log.debug("Hello, ECS! entity: {d}\n", .{entity.id});
+//     // try world.attachComponents(entity, .{ Player{ .id = 1 }, Sword{ .damage = 10 }, Apple{ .color = .red } });
+// }
 
-    std.debug.print("Hello, ECS! id: {d} dmg: {d}\n", .{ player.id, sword.damage });
+fn testSystem2(test_query: ecs.Query(.{ SELECT, Player, Sword, WITH, Apple })) !void {
+    // const player, const sword = test_query.result;
+
+    // std.debug.print("Hello, ECS! id: {d} dmg: {d}\n", .{ player.id, sword.damage });
+    _ = test_query;
+    std.debug.print("Hello, ECS! testSystem2\n", .{});
 }
 
 test {

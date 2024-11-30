@@ -13,51 +13,11 @@ pub fn Registry(comptime builder: *const ApplicationBuilder) type {
     return struct {
         const Self = @This();
 
-        pub const SystemIterator = struct {
-            pub const Entry = struct {
-                system_ptr: *const anyopaque,
-                // type: type,
-            };
-
-            comptime systems: Systems = Systems{},
-            idx: u32 = 0,
-
-            pub fn next(self: *SystemIterator) ?Entry {
-                if (self.idx < std.meta.fields(self.systems).len) {
-                    const entry = self.systems[self.idx];
-                    self.idx += 1;
-
-                    return Entry{
-                        .system_ptr = @constCast(entry),
-                        // .type = @TypeOf(entry),
-                    };
-                }
-
-                return null;
-            }
-        };
-
         comptime components: Components = Components{},
         comptime systems: Systems = Systems{},
 
         pub fn init() Self {
             return Self{};
-        }
-
-        // pub fn getComponentIdx(self: *const Self, comptime Component: type) ComponentFlags(self.components) {
-        //     inline for (0..std.meta.fields(self.components).len) |i| {
-        //         const entry = self.components[i];
-        //         if (entry.component == Component) {
-        //             return entry.key;
-        //         }
-        //     }
-        //
-        //     @compileError("Tried to get component index for a component that doesn't exist in the component map.");
-        // }
-
-        pub fn systemIterator(self: *const Self) SystemIterator {
-            _ = self;
-            return SystemIterator{};
         }
     };
 }

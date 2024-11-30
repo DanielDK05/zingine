@@ -1,3 +1,4 @@
+pub const system = @import("ecs/system.zig");
 pub const world = @import("ecs/world.zig");
 pub const application = @import("ecs/application.zig");
 pub const entity = @import("ecs/entity.zig");
@@ -6,6 +7,7 @@ pub const command_bus = @import("ecs/command_bus.zig");
 pub const archetype = @import("ecs/archetype.zig");
 
 pub const World = world.World;
+pub const IWorld = world.IWorld;
 pub const ApplicationBuilder = application.ApplicationBuilder;
 pub const Application = application.Application;
 pub const Entity = entity.Entity;

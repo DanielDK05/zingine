@@ -1,7 +1,9 @@
 const std = @import("std");
 const StructField = std.builtin.Type.StructField;
 
+const utils = @import("../../utils.zig");
 const parser = @import("parser.zig");
+const SystemParam = @import("../system.zig").Param;
 
 fn systemContainsQuery(comptime system: anytype) bool {
     const type_info = @typeInfo(@TypeOf(system));
@@ -68,31 +70,18 @@ pub fn Query(comptime query: anytype) type {
         break :blk parser.parse(tokens) catch |err| @compileError(parser.fmtError(err));
     };
 
-    const Result = blk: {
-        var struct_fields: []const StructField = &[_]StructField{};
+    return struct {
+        const Self = @This();
 
-        inline for (parse_result.result, 0..) |field_type, i| {
-            struct_fields = struct_fields ++ &[_]StructField{.{
-                .alignment = @alignOf(field_type),
-                .name = std.fmt.comptimePrint("{d}", .{i}),
-                .default_value = null,
-                .is_comptime = false,
-                .type = field_type,
-            }};
+        result: utils.TupleOfTypes(parse_result.result),
+
+        pub fn systemParam() SystemParam {
+            return .query;
         }
 
-        break :blk @Type(.{
-            .@"struct" = .{
-                .decls = &[_]std.builtin.Type.Declaration{},
-                .fields = struct_fields,
-                .is_tuple = true,
-                .layout = .auto,
-            },
-        });
-    };
-
-    return struct {
-        result: Result,
+        pub fn Result() type {
+            return utils.TupleOfTypes(parse_result.result);
+        }
     };
 }
 
