@@ -134,7 +134,7 @@ pub fn ArchetypeStore(comptime fullComponentSet: anytype) type {
             self.archetypes.deinit();
         }
 
-        pub fn put(self: *Self, comptime componentSubset: anytype) mem.Allocator.Error!void {
+        pub fn put(self: *Self, comptime componentSubset: anytype) mem.Allocator.Error!*Archetype(fullComponentSet, componentSubset) {
             const Entry = Archetype(fullComponentSet, componentSubset);
             const archetype = try self.allocator.create(Entry);
             archetype.* = Entry.init(self.allocator);
@@ -142,7 +142,7 @@ pub fn ArchetypeStore(comptime fullComponentSet: anytype) type {
             const archetype_ptr: *const anyopaque = @constCast(archetype);
 
             try self.archetypes.put(archetype.id, archetype_ptr);
-            return self.archetypes.put(archetype.id, archetype_ptr).?;
+            return @as(*Entry, @alignCast(@ptrCast(@constCast(self.archetypes.get(archetype.id).?))));
         }
 
         pub fn get(self: *Self, comptime flags: ArchetypeFlags) ?*Archetype(fullComponentSet, ComponentsFromFlags(fullComponentSet, flags){}) {
@@ -178,9 +178,9 @@ test "ArchetypeStore" {
     var store = ArchetypeStore(FullSet).init(testing.allocator);
     defer store.deinit();
 
-    try store.put(.{ A, B, C });
-    try store.put(.{ A, C, E });
-    try store.put(.{ B, D });
+    _ = try store.put(.{ A, B, C });
+    _ = try store.put(.{ A, C, E });
+    _ = try store.put(.{ B, D });
 
     const archetype1 = store.get(0b11100).?;
     const archetype2 = store.get(0b10101).?;

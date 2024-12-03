@@ -5,25 +5,6 @@ const assert = std.debug.assert;
 const utils = @import("../utils.zig");
 const ecs = @import("../ecs.zig");
 
-pub const IWorld = struct {
-    ptr: *anyopaque,
-    vtable: *const VTable,
-
-    pub const VTable = struct {
-        spawnEntity: *const fn (ctx: *anyopaque) mem.Allocator.Error!ecs.Entity,
-        attachComponents: *const fn (ctx: *anyopaque, entity: ecs.Entity, comptime components: anytype) mem.Allocator.Error!void,
-    };
-
-    pub fn spawnEntity(self: IWorld) mem.Allocator.Error!ecs.Entity {
-        // return @call(.always_inline, self.vtable.spawnEntity, .{self.ptr});
-        return self.vtable.spawnEntity(self.ptr);
-    }
-
-    pub fn attachComponents(self: *IWorld, entity: ecs.Entity, comptime components: anytype) mem.Allocator.Error!void {
-        return self.vtable.attachComponents(self.ptr, entity, components);
-    }
-};
-
 pub fn World(comptime builder: *const ecs.ApplicationBuilder) type {
     const fullComponentSet = utils.TupleOfTypes2(builder.components()){};
     const ArchetypeStore = ecs.archetype.ArchetypeStore(fullComponentSet);
@@ -53,46 +34,16 @@ pub fn World(comptime builder: *const ecs.ApplicationBuilder) type {
             self.entities.deinit();
         }
 
-        pub fn iworld(self: *Self) IWorld {
-            return .{
-                .ptr = self,
-                .vtable = &.{
-                    .spawnEntity = spawnEntity,
-                    .attachComponents = &attachComponents,
-                },
-            };
-        }
-
-        pub fn spawnEntity(ctx: *anyopaque) mem.Allocator.Error!ecs.Entity {
-            const self: *Self = @ptrCast(@alignCast(ctx));
+        pub fn spawnEntity(self: *Self) mem.Allocator.Error!ecs.Entity {
             const entity = ecs.Entity{ .id = @truncate(self.entities.items.len) };
             try self.entities.append(entity);
             return entity;
         }
 
-        pub fn spawnEntity2(self: *Self) mem.Allocator.Error!ecs.Entity {
-            const entity = ecs.Entity{ .id = @truncate(self.entities.items.len) };
-            try self.entities.append(entity);
-            return entity;
-        }
-
-        pub fn attachComponents(ctx: *anyopaque, entity: ecs.Entity, comptime components: anytype) mem.Allocator.Error!void {
-            const self: *Self = @ptrCast(@alignCast(ctx));
-            const flags = ecs.archetype.getFlag(ArchetypeFlags, components);
-            const archetype = try self.archetypes.getOrPut(flags);
-            const index = archetype.entries.len;
-
-            try self.connections.append(.{
-                .entity = entity,
-                .flags = flags,
-                .index = index,
-            });
-        }
-
-        pub fn attachComponents2(self: *Self, entity: ecs.Entity, comptime components: anytype) mem.Allocator.Error!void {
-            const flags = ecs.archetype.getFlags(fullComponentSet, utils.UnpackTupleOfTypes(components));
-            const archetype = try self.archetypes.getOrPut(flags);
-            const index = archetype.entries.len;
+        pub fn attachComponents(self: *Self, entity: ecs.Entity, comptime components: anytype) mem.Allocator.Error!void {
+            const flags = comptime ecs.archetype.getFlags(fullComponentSet, utils.TupleOfTypes(components){});
+            const archetype = try self.archetypes.getOrPut(flags, utils.TupleOfTypes(components){});
+            const index = archetype.entries.items.len;
 
             try self.connections.append(.{
                 .entity = entity,

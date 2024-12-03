@@ -41,23 +41,18 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
                 const system = self.registry.systems[i];
 
                 const args = std.meta.ArgsTuple(@TypeOf(system));
-                var paramsToPass: GetSystemParams(system) = undefined;
+                const paramsToPass: GetSystemParams(system) = undefined;
 
                 inline for (std.meta.fields(args), 0..) |arg, cur_param_index| {
-                    if (arg.type == ecs.IWorld) {
-                        paramsToPass[cur_param_index] = self.world.iworld();
-
-                        continue;
-                    }
-
                     if (ecs.system.Param.from(arg.type) != .query) {
                         continue;
                     }
+                    _ = cur_param_index;
 
                     // const queryResult = arg.type.Result();
                     // inline for (std.meta.fields(queryResult)) |component| {
                     //     _ = component;
-                    //     paramsToPass[k][j] = undefined;
+                    //     paramsToPass[cur_param_index][j] = undefined;
                     //     j += 1;
                     // }
                 }
@@ -84,18 +79,6 @@ pub fn Application(comptime builder: *const ApplicationBuilder) type {
             const args = std.meta.ArgsTuple(@TypeOf(system));
 
             inline for (std.meta.fields(args)) |field| {
-                if (field.type == ecs.IWorld) {
-                    fields = fields ++ &[_]StructField{.{
-                        .alignment = @alignOf(field.type),
-                        .name = std.fmt.comptimePrint("{d}", .{fields.len}),
-                        .default_value = null,
-                        .is_comptime = false,
-                        .type = field.type,
-                    }};
-
-                    continue;
-                }
-
                 if (ecs.system.Param.from(field.type) != .query) {
                     continue;
                 }
@@ -149,13 +132,10 @@ pub const ApplicationBuilder = struct {
             const args = std.meta.fields(std.meta.ArgsTuple(pointer_child));
 
             for (args) |arg| {
-                if (arg.type == ecs.IWorld) {
-                    continue;
-                }
-
                 if (ecs.system.Param.from(arg.type) == .query) {
-                    for (std.meta.fields(arg.type.Result())) |field| {
-                        types = types ++ &[_]type{field.type};
+                    const result = arg.type.Result(){};
+                    for (std.meta.fields(@TypeOf(result)), 0..) |_, i| {
+                        types = types ++ &[_]type{result[i]};
                     }
                 }
             }

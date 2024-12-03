@@ -28,11 +28,10 @@ pub fn main() !void {
     };
     defer application.deinit();
 
-    const entity = try application.world.spawnEntity2();
-    try application.world.attachComponents2(entity, .{
+    const entity = try application.world.spawnEntity();
+    try application.world.attachComponents(entity, .{
         Player{ .id = 0 },
         Sword{ .damage = 10 },
-        Apple{ .color = .red },
     });
 
     try application.run();
@@ -60,12 +59,11 @@ fn testSystem3(world: ecs.IWorld) !void {
 //     // try world.attachComponents(entity, .{ Player{ .id = 1 }, Sword{ .damage = 10 }, Apple{ .color = .red } });
 // }
 
-fn testSystem2(test_query: ecs.Query(.{ SELECT, Player, Sword, WITH, Apple })) !void {
+fn testSystem2(test_query: ecs.Query(.{ SELECT, Player, Sword })) !void {
     // const player, const sword = test_query.result;
 
     // std.debug.print("Hello, ECS! id: {d} dmg: {d}\n", .{ player.id, sword.damage });
-    _ = test_query;
-    std.debug.print("Hello, ECS! testSystem2\n", .{});
+    std.debug.print("Hello, ECS! PlayerID: {d}, Sword dmg: {d}\n", .{ test_query.result[0].id, test_query.result[1].damage });
 }
 
 test {

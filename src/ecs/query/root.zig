@@ -73,14 +73,14 @@ pub fn Query(comptime query: anytype) type {
     return struct {
         const Self = @This();
 
-        result: utils.TupleOfTypes(parse_result.result),
+        result: utils.TupleOfTypes2(parse_result.result),
 
         pub fn systemParam() SystemParam {
             return .query;
         }
 
         pub fn Result() type {
-            return utils.TupleOfTypes(parse_result.result);
+            return utils.TupleOfTypes2(parse_result.result);
         }
     };
 }
